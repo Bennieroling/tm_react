@@ -1,0 +1,8 @@
+az webapp config appsettings set --resource-group RG_WE_APPS_TELEPHONY_MONITORING_TEST --name we-test-tm-applinux-01 --settings \
+  DB_USER="telephonymonitor-adm" \
+  DB_PASSWORD="VJtH3o0luEkgTbkXWqyI" \
+  DB_SERVER="we-test-shared-sql-01.database.windows.net" \
+  DB_NAME="we-test-telephony-monitoring-sqldb-01" \
+  NODE_ENV="production"
+
+
