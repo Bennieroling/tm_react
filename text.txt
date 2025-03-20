@@ -4,5 +4,5 @@ az webapp config appsettings set --resource-group RG_WE_APPS_TELEPHONY_MONITORIN
   DB_SERVER="we-test-shared-sql-01.database.windows.net" \
   DB_NAME="we-test-telephony-monitoring-sqldb-01" \
   NODE_ENV="production"
-
+1
 
