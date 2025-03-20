@@ -108,7 +108,7 @@ CREATE TABLE dbo.telemetry_details (
 2. Deploy to Azure App Service
 3. Configure environment variables in Azure App Service Configuration
 
-## Adding New Views
+## Adding New Viewss
 
 To add new views to the application:
 
