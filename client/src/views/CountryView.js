@@ -25,24 +25,41 @@ const CountryView = () => {
       try {
         setLoading(true);
         const response = await telemetryApi.getCountryStatus(countryId);
-        setCountryData(response.data);
+        
+        // Handle wrapped response structure
+        const countryDetails = response.data.data || response.data;
+        setCountryData(countryDetails);
         setLoading(false);
         
         // After getting country data, fetch phone numbers
-        if (response.data && response.data.country) {
+        if (countryDetails && countryDetails.country) {
           try {
             setPhoneLoading(true);
-            const phoneResponse = await phoneApi.getPhoneNumbersByCountry(response.data.country);
-            setPhoneData(phoneResponse.data);
-            setFilteredPhoneData(phoneResponse.data);
+            const phoneResponse = await phoneApi.getPhoneNumbersByCountry(countryDetails.country);
+            
+            // Handle wrapped response structure
+            const phoneNumbers = phoneResponse.data.data || phoneResponse.data;
+            
+            // Ensure we have an array of phone numbers
+            if (Array.isArray(phoneNumbers)) {
+              setPhoneData(phoneNumbers);
+              setFilteredPhoneData(phoneNumbers);
+            } else {
+              console.warn('Phone data is not an array:', phoneNumbers);
+              setPhoneData([]);
+              setFilteredPhoneData([]);
+            }
+            
             setPhoneLoading(false);
           } catch (phoneErr) {
             console.error('Error fetching phone numbers:', phoneErr);
             setPhoneError(
               phoneErr.response?.status === 404
-                ? `No phone numbers found for ${response.data.country}`
+                ? `No phone numbers found for ${countryDetails.country}`
                 : 'Failed to fetch phone numbers. Please try again later.'
             );
+            setPhoneData([]);
+            setFilteredPhoneData([]);
             setPhoneLoading(false);
           }
         }
@@ -68,7 +85,7 @@ const CountryView = () => {
 
   // Apply filters whenever filter states change
   useEffect(() => {
-    if (!phoneData.length) return;
+    if (!phoneData || !phoneData.length) return;
     
     let filtered = [...phoneData];
     
@@ -76,7 +93,7 @@ const CountryView = () => {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(phone => 
-        phone.phone_number.toLowerCase().includes(term)
+        phone.phone_number && phone.phone_number.toLowerCase().includes(term)
       );
     }
     
@@ -103,6 +120,7 @@ const CountryView = () => {
         case 'today':
           // Today
           filtered = filtered.filter(phone => {
+            if (!phone.last_updated) return false;
             const phoneDate = new Date(phone.last_updated);
             return phoneDate.setHours(0, 0, 0, 0) === today.setHours(0, 0, 0, 0);
           });
@@ -111,6 +129,7 @@ const CountryView = () => {
           // Yesterday
           filterDate.setDate(today.getDate() - 1);
           filtered = filtered.filter(phone => {
+            if (!phone.last_updated) return false;
             const phoneDate = new Date(phone.last_updated);
             return phoneDate.setHours(0, 0, 0, 0) === filterDate.setHours(0, 0, 0, 0);
           });
@@ -119,6 +138,7 @@ const CountryView = () => {
           // Last 7 days
           filterDate.setDate(today.getDate() - 7);
           filtered = filtered.filter(phone => {
+            if (!phone.last_updated) return false;
             const phoneDate = new Date(phone.last_updated);
             return phoneDate >= filterDate;
           });
@@ -127,6 +147,7 @@ const CountryView = () => {
           // Last 30 days
           filterDate.setDate(today.getDate() - 30);
           filtered = filtered.filter(phone => {
+            if (!phone.last_updated) return false;
             const phoneDate = new Date(phone.last_updated);
             return phoneDate >= filterDate;
           });
@@ -141,7 +162,7 @@ const CountryView = () => {
 
   // Get unique types for filter dropdown
   const getUniqueTypes = () => {
-    if (!phoneData.length) return [];
+    if (!phoneData || !phoneData.length) return [];
     
     const types = new Set();
     phoneData.forEach(phone => {
@@ -161,6 +182,7 @@ const CountryView = () => {
 
   // Format date to readable format
   const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
     const date = new Date(dateString);
     return date.toLocaleString();
   };
@@ -192,7 +214,7 @@ const CountryView = () => {
           </div>
           <div className="summary-item">
             <span className="label">Region:</span>
-            <span className="value">{countryData.region}</span>
+            <span className="value">{countryData.region || 'N/A'}</span>
           </div>
           <div className="summary-item">
             <span className="label">Last Updated:</span>
@@ -306,8 +328,8 @@ const CountryView = () => {
                 </thead>
                 <tbody>
                   {filteredPhoneData.map((phone) => (
-                    <tr key={phone.id}>
-                      <td>{phone.phone_number}</td>
+                    <tr key={phone.id || phone.phone_number}>
+                      <td>{phone.phone_number || phone.number || 'N/A'}</td>
                       <td>{phone.type || 'N/A'}</td>
                       <td>
                         <StatusIndicator status={phone.status} />

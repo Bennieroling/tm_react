@@ -27,7 +27,7 @@ export const telemetryApi = {
       console.log('Calling getGlobalStatus API');
       const response = await apiClient.get('/telemetry/global');
       console.log('Received API response:', response.data);
-      return response.data;
+      return response;
     } catch (error) {
       console.error('API Error in getGlobalStatus:', error);
       throw error;
@@ -40,7 +40,7 @@ export const telemetryApi = {
       console.log(`Calling getCountryStatus API for country: ${countryId}`);
       const response = await apiClient.get(`/telemetry/country/${countryId}`);
       console.log('Received API response:', response.data);
-      return response.data;
+      return response;
     } catch (error) {
       console.error(`API Error in getCountryStatus for ${countryId}:`, error);
       throw error;
@@ -61,7 +61,7 @@ export const historyApi = {
       }
       
       const response = await apiClient.get('/history', { params });
-      return response; // Return the entire response, not just response.data
+      return response;
     } catch (error) {
       console.error('API Error in getStatusHistory:', error);
       throw error;
@@ -83,7 +83,7 @@ export const historyApi = {
       }
       
       const response = await apiClient.get('/history/phone', { params });
-      return response; // Return the entire response, not just response.data
+      return response;
     } catch (error) {
       console.error('API Error in getPhoneHistory:', error);
       throw error;
@@ -96,10 +96,40 @@ export const phoneApi = {
   // Get phone numbers for a specific country
   getPhoneNumbersByCountry: async (country) => {
     try {
+      console.log(`Calling getPhoneNumbersByCountry API for country: ${country}`);
       const response = await apiClient.get(`/phone/country/${encodeURIComponent(country)}`);
+      console.log('Received API response:', response.data);
       return response;
     } catch (error) {
+      // If 404, provide a nicer error message
+      if (error.response && error.response.status === 404) {
+        console.error(`API Error in getPhoneNumbersByCountry for ${country}: Endpoint not found (404)`);
+        // Create a structured error object for better debugging
+        const enhancedError = { 
+          ...error,
+          response: {
+            ...error.response,
+            data: {
+              success: false,
+              message: `No phone numbers found for ${country}`
+            }
+          }
+        };
+        throw enhancedError;
+      }
+      
       console.error(`API Error in getPhoneNumbersByCountry for ${country}:`, error);
+      throw error;
+    }
+  },
+  
+  // If you have other phone-related endpoints, add them here
+  getPhoneDetails: async (phoneId) => {
+    try {
+      const response = await apiClient.get(`/phone/${phoneId}`);
+      return response;
+    } catch (error) {
+      console.error(`API Error in getPhoneDetails for ${phoneId}:`, error);
       throw error;
     }
   }

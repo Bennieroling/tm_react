@@ -100,11 +100,20 @@ const GlobalHistoryView = () => {
       
       // Check if response and response.data exist
       if (response && response.data) {
-        setHistoryData(response.data);
+        // Handle wrapped response structure with a data property
+        const actualData = response.data.data || response.data;
         
-        // Log data for debugging
-        console.log('Fetched history data:', response.data);
-        console.log('Yellow items count:', response.data.filter(item => item.status === 'yellow').length);
+        if (Array.isArray(actualData)) {
+          setHistoryData(actualData);
+          
+          // Log data for debugging
+          console.log('Fetched history data:', actualData);
+          console.log('Yellow items count:', actualData.filter(item => item.status === 'yellow').length);
+        } else {
+          console.error('Expected array but received:', typeof actualData);
+          setHistoryData([]);
+          setError('Invalid data format received from server');
+        }
       } else {
         // Handle empty or malformed response
         console.warn('API returned empty or invalid data');

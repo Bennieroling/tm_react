@@ -18,9 +18,20 @@ const GlobalView = () => {
       try {
         setLoading(true);
         const response = await telemetryApi.getGlobalStatus();
-        // If response is the array directly (not wrapped in a data property)
-        setTelemetryData(response);
-        setFilteredData(response);
+        console.log('Global status data:', response.data);
+        
+        // Handle the case where the response contains a data property (wrapped response)
+        const countryData = response.data.data || response.data;
+        
+        // Make sure we have an array before proceeding
+        if (Array.isArray(countryData)) {
+          setTelemetryData(countryData);
+          setFilteredData(countryData);
+        } else {
+          console.error('Expected an array but received:', typeof countryData);
+          setError('Received invalid data format from the server');
+        }
+        
         setLoading(false);
       } catch (err) {
         setError('Failed to fetch telemetry data. Please try again later.');
@@ -40,6 +51,11 @@ const GlobalView = () => {
   
   // Apply filters when activeFilter or activeRegion changes or telemetryData updates
   useEffect(() => {
+    if (!Array.isArray(telemetryData)) {
+      setFilteredData([]);
+      return;
+    }
+    
     let filtered = [...telemetryData];
     
     // Apply status filter if active
@@ -92,6 +108,7 @@ const GlobalView = () => {
 
   // Format date to readable format
   const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
     const date = new Date(dateString);
     return date.toLocaleString();
   };
@@ -105,8 +122,7 @@ const GlobalView = () => {
       red: 0
     };
     
-    
-    if (telemetryData) {
+    if (Array.isArray(telemetryData)) {
       telemetryData.forEach(item => {
         // Count by region
         if (!regions[item.region]) {
@@ -128,10 +144,18 @@ const GlobalView = () => {
       console.error("telemetryData is undefined or null");
       // Initialize with empty objects
       regions = {};
-      statuses = {};
+      statuses = { green: 0, yellow: 0, red: 0 };
     }
     
     return { regions, statuses };
+  }
+
+  if (loading) {
+    return <div className="loading">Loading global status...</div>;
+  }
+
+  if (error) {
+    return <div className="error">{error}</div>;
   }
 
   const { regions, statuses } = getStatusCounts();
@@ -168,39 +192,41 @@ const GlobalView = () => {
         </div>
       </div>
       
-      <div className="region-summary">
-        <h2>Status by Region</h2>
-        <div className="region-cards">
-          {Object.entries(regions).map(([region, counts]) => (
-            <div 
-              className={`region-card ${activeRegion === region ? 'active' : ''}`} 
-              key={region}
-              onClick={() => handleRegionClick(region)}
-            >
-              <h3>{region}</h3>
-              <div className="region-stats">
-                <div className="stat">
-                  <span className="stat-label">Total:</span>
-                  <span className="stat-value">{counts.total}</span>
+      {Object.keys(regions).length > 0 && (
+        <div className="region-summary">
+          <h2>Status by Region</h2>
+          <div className="region-cards">
+            {Object.entries(regions).map(([region, counts]) => (
+              <div 
+                className={`region-card ${activeRegion === region ? 'active' : ''}`} 
+                key={region}
+                onClick={() => handleRegionClick(region)}
+              >
+                <h3>{region}</h3>
+                <div className="region-stats">
+                  <div className="stat">
+                    <span className="stat-label">Total:</span>
+                    <span className="stat-value">{counts.total}</span>
+                  </div>
+                  <div className="stat">
+                    <span className="stat-label">Online:</span>
+                    <span className="stat-value">{counts.green}</span>
+                  </div>
+                  <div className="stat">
+                    <span className="stat-label">Degraded:</span>
+                    <span className="stat-value">{counts.yellow || 0}</span>
+                  </div>
+                  <div className="stat">
+                    <span className="stat-label">Offline:</span>
+                    <span className="stat-value">{counts.red}</span>
+                  </div>
                 </div>
-                <div className="stat">
-                  <span className="stat-label">Online:</span>
-                  <span className="stat-value">{counts.green}</span>
-                </div>
-                <div className="stat">
-                  <span className="stat-label">Degraded:</span>
-                  <span className="stat-value">{counts.yellow || 0}</span>
-                </div>
-                <div className="stat">
-                  <span className="stat-label">Offline:</span>
-                  <span className="stat-value">{counts.red}</span>
-                </div>
+                {activeRegion === region && <div className="filter-badge">Filtered</div>}
               </div>
-              {activeRegion === region && <div className="filter-badge">Filtered</div>}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
       
       <div className="countries-header">
         <div className="header-left">
@@ -217,7 +243,7 @@ const GlobalView = () => {
                 {` (${filteredData.length})`}
               </>
             ) : (
-              `All Countries (${telemetryData.length})`
+              `All Countries (${telemetryData.length || 0})`
             )}
           </h2>
         </div>
@@ -251,6 +277,7 @@ const GlobalView = () => {
           )}
         </div>
       </div>
+      
       <div className="table-container">
         <table className="telemetry-table">
           <thead>
@@ -263,21 +290,29 @@ const GlobalView = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredData.map((country) => (
-              <tr key={country.id}>
-                <td>{country.country}</td>
-                <td>{country.region}</td>
-                <td>
-                  <StatusIndicator status={country.status} />
-                </td>
-                <td>{formatDate(country.last_updated)}</td>
-                <td>
-                  <Link to={`/country/${country.id}`} className="details-link">
-                    View Details
-                  </Link>
+            {filteredData.length > 0 ? (
+              filteredData.map((country) => (
+                <tr key={country.id || country.country}>
+                  <td>{country.country}</td>
+                  <td>{country.region || 'N/A'}</td>
+                  <td>
+                    <StatusIndicator status={country.status} />
+                  </td>
+                  <td>{formatDate(country.last_updated || country.last_checked)}</td>
+                  <td>
+                    <Link to={`/country/${country.id || country.country}`} className="details-link">
+                      View Details
+                    </Link>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="5" style={{ textAlign: 'center', padding: '20px' }}>
+                  No countries match your filter criteria
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>

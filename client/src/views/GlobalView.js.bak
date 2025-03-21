@@ -1,0 +1,185 @@
+import React, { useState, useEffect } from 'react';
+import { telemetryApi } from '../services/api';
+import CountryCard from '../components/CountryCard';
+import './GlobalView.css';
+
+const GlobalView = () => {
+  const [globalData, setGlobalData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filter, setFilter] = useState('all');
+
+  useEffect(() => {
+    const fetchGlobalStatus = async () => {
+      try {
+        setLoading(true);
+        const response = await telemetryApi.getGlobalStatus();
+        console.log('Global status data:', response.data);
+        
+        // Handle the case where the response contains a data property (wrapped response)
+        const countryData = response.data.data || response.data;
+        
+        // Make sure we have an array before calling forEach
+        if (Array.isArray(countryData)) {
+          setGlobalData(countryData);
+        } else {
+          console.error('Expected an array but received:', typeof countryData);
+          setError('Received invalid data format from the server');
+        }
+        
+        setLoading(false);
+      } catch (err) {
+        setError('Failed to fetch global status. Please try again later.');
+        setLoading(false);
+        console.error('Error fetching global status:', err);
+      }
+    };
+
+    fetchGlobalStatus();
+  }, []);
+
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const handleFilterChange = (newFilter) => {
+    setFilter(newFilter);
+  };
+
+  const filteredData = globalData.filter(country => {
+    const matchesSearch = country.country.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    if (filter === 'all') return matchesSearch;
+    if (filter === 'issues') return matchesSearch && country.status !== 'green';
+    if (filter === 'green') return matchesSearch && country.status === 'green';
+    if (filter === 'yellow') return matchesSearch && country.status === 'yellow';
+    if (filter === 'red') return matchesSearch && country.status === 'red';
+    
+    return matchesSearch;
+  });
+
+  const getStatusCounts = () => {
+    const counts = {
+      green: 0,
+      yellow: 0,
+      red: 0,
+      total: globalData.length
+    };
+    
+    if (Array.isArray(globalData)) {
+      globalData.forEach(country => {
+        if (country.status) {
+          counts[country.status] = (counts[country.status] || 0) + 1;
+        }
+      });
+    }
+    
+    return counts;
+  };
+
+  if (loading) {
+    return <div className="loading">Loading global status...</div>;
+  }
+
+  if (error) {
+    return <div className="error">{error}</div>;
+  }
+
+  const counts = getStatusCounts();
+
+  return (
+    <div className="global-view">
+      <h1>Global Telephony Status</h1>
+      
+      <div className="status-summary">
+        <div className="status-card all">
+          <h3>Total Countries</h3>
+          <div className="status-count">{counts.total}</div>
+        </div>
+        <div className="status-card green">
+          <h3>Online</h3>
+          <div className="status-count">{counts.green}</div>
+          <div className="status-percentage">
+            {counts.total ? Math.round((counts.green / counts.total) * 100) : 0}%
+          </div>
+        </div>
+        <div className="status-card yellow">
+          <h3>Degraded</h3>
+          <div className="status-count">{counts.yellow}</div>
+          <div className="status-percentage">
+            {counts.total ? Math.round((counts.yellow / counts.total) * 100) : 0}%
+          </div>
+        </div>
+        <div className="status-card red">
+          <h3>Offline</h3>
+          <div className="status-count">{counts.red}</div>
+          <div className="status-percentage">
+            {counts.total ? Math.round((counts.red / counts.total) * 100) : 0}%
+          </div>
+        </div>
+      </div>
+      
+      <div className="controls">
+        <div className="search">
+          <input
+            type="text"
+            placeholder="Search for a country..."
+            value={searchTerm}
+            onChange={handleSearchChange}
+          />
+        </div>
+        
+        <div className="filters">
+          <button
+            className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
+            onClick={() => handleFilterChange('all')}
+          >
+            All Countries
+          </button>
+          <button
+            className={`filter-btn ${filter === 'issues' ? 'active' : ''}`}
+            onClick={() => handleFilterChange('issues')}
+          >
+            Issues Only
+          </button>
+          <button
+            className={`filter-btn green ${filter === 'green' ? 'active' : ''}`}
+            onClick={() => handleFilterChange('green')}
+          >
+            Online
+          </button>
+          <button
+            className={`filter-btn yellow ${filter === 'yellow' ? 'active' : ''}`}
+            onClick={() => handleFilterChange('yellow')}
+          >
+            Degraded
+          </button>
+          <button
+            className={`filter-btn red ${filter === 'red' ? 'active' : ''}`}
+            onClick={() => handleFilterChange('red')}
+          >
+            Offline
+          </button>
+        </div>
+      </div>
+      
+      <div className="countries-grid">
+        {filteredData.length > 0 ? (
+          filteredData.map((country) => (
+            <CountryCard
+              key={country.country}
+              country={country}
+            />
+          ))
+        ) : (
+          <div className="no-results">
+            No countries match your search criteria
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default GlobalView;
