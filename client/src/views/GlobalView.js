@@ -18,8 +18,9 @@ const GlobalView = () => {
       try {
         setLoading(true);
         const response = await telemetryApi.getGlobalStatus();
-        setTelemetryData(response.data);
-        setFilteredData(response.data);
+        // If response is the array directly (not wrapped in a data property)
+        setTelemetryData(response);
+        setFilteredData(response);
         setLoading(false);
       } catch (err) {
         setError('Failed to fetch telemetry data. Please try again later.');
@@ -97,40 +98,40 @@ const GlobalView = () => {
 
   // Get counts by region and status
   const getStatusCounts = () => {
-    const regions = {};
-    const statuses = {
+    let regions = {};
+    let statuses = {
       green: 0,
       yellow: 0,
       red: 0
     };
     
-    telemetryData.forEach(item => {
-      // Count by region
-      if (!regions[item.region]) {
-        regions[item.region] = {
-          total: 0,
-          green: 0,
-          yellow: 0,
-          red: 0
-        };
-      }
-      
-      regions[item.region].total += 1;
-      regions[item.region][item.status] = (regions[item.region][item.status] || 0) + 1;
-      
-      // Count by status
-      statuses[item.status] = (statuses[item.status] || 0) + 1;
-    });
+    
+    if (telemetryData) {
+      telemetryData.forEach(item => {
+        // Count by region
+        if (!regions[item.region]) {
+          regions[item.region] = {
+            total: 0,
+            green: 0,
+            yellow: 0,
+            red: 0
+          };
+        }
+        
+        regions[item.region].total += 1;
+        regions[item.region][item.status] = (regions[item.region][item.status] || 0) + 1;
+        
+        // Count by status
+        statuses[item.status] = (statuses[item.status] || 0) + 1;
+      });
+    } else {
+      console.error("telemetryData is undefined or null");
+      // Initialize with empty objects
+      regions = {};
+      statuses = {};
+    }
     
     return { regions, statuses };
-  };
-
-  if (loading) {
-    return <div className="loading">Loading telemetry data...</div>;
-  }
-
-  if (error) {
-    return <div className="error">{error}</div>;
   }
 
   const { regions, statuses } = getStatusCounts();

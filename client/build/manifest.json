@@ -1,0 +1,15 @@
+{
+    "short_name": "Telephony Monitor",
+    "name": "Telephony Monitoring Dashboard",
+    "icons": [
+      {
+        "src": "favicon.ico",
+        "sizes": "64x64 32x32 24x24 16x16",
+        "type": "image/x-icon"
+      }
+    ],
+    "start_url": ".",
+    "display": "standalone",
+    "theme_color": "#1e88e5",
+    "background_color": "#ffffff"
+  }

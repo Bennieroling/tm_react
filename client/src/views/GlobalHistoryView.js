@@ -29,6 +29,11 @@ const GlobalHistoryView = () => {
 
   // Apply filters when filter states change or historyData updates
   useEffect(() => {
+    if (!historyData || !Array.isArray(historyData)) {
+      setFilteredData([]);
+      return;
+    }
+    
     // First filter out the "green" (online) events as we're only interested in issues
     let filtered = historyData.filter(item => item.status !== 'green');
     
@@ -93,17 +98,27 @@ const GlobalHistoryView = () => {
         );
       }
       
-      setHistoryData(response.data);
-      setFilteredData(response.data);
-      setLoading(false);
+      // Check if response and response.data exist
+      if (response && response.data) {
+        setHistoryData(response.data);
+        
+        // Log data for debugging
+        console.log('Fetched history data:', response.data);
+        console.log('Yellow items count:', response.data.filter(item => item.status === 'yellow').length);
+      } else {
+        // Handle empty or malformed response
+        console.warn('API returned empty or invalid data');
+        setHistoryData([]);
+        setError('No history data available. Please try again later.');
+      }
       
-      // Log data for debugging
-      console.log('Fetched history data:', response.data);
-      console.log('Yellow items count:', response.data.filter(item => item.status === 'yellow').length);
+      setLoading(false);
     } catch (err) {
       setError('Failed to fetch history data. Please try again later.');
       setLoading(false);
       console.error('Error fetching history data:', err);
+      // Initialize with empty array to prevent filter errors
+      setHistoryData([]);
     }
   };
 
@@ -131,7 +146,7 @@ const GlobalHistoryView = () => {
   
   // Get unique countries for filter dropdown
   const getUniqueCountries = () => {
-    if (!historyData.length) return [];
+    if (!historyData || !historyData.length) return [];
     
     const countries = new Set();
     historyData.forEach(item => {
@@ -143,7 +158,7 @@ const GlobalHistoryView = () => {
   
   // Get unique types for filter dropdown
   const getUniqueTypes = () => {
-    if (!historyData.length) return [];
+    if (!historyData || !historyData.length) return [];
     
     const types = new Set();
     historyData.forEach(item => {
@@ -161,6 +176,10 @@ const GlobalHistoryView = () => {
       ongoing: 0,
       total: 0
     };
+    
+    if (!historyData || !Array.isArray(historyData)) {
+      return counts;
+    }
     
     historyData.forEach(item => {
       if (item.status === 'yellow' || item.status === 'red') {
@@ -223,8 +242,14 @@ const GlobalHistoryView = () => {
   const groupData = (data = filteredData) => {
     const grouped = {};
     
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      return grouped;
+    }
+    
     if (viewMode === 'country') {
       data.forEach(item => {
+        if (!item || !item.country) return;
+        
         if (!grouped[item.country]) {
           grouped[item.country] = [];
         }
@@ -232,6 +257,8 @@ const GlobalHistoryView = () => {
       });
     } else {
       data.forEach(item => {
+        if (!item || !item.number) return;
+        
         if (!grouped[item.number]) {
           grouped[item.number] = [];
         }
