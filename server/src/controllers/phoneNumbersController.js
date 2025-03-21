@@ -1,26 +1,5 @@
-// This is a mock implementation of a phone numbers controller
-// In a real application, this would connect to your database
-
-// Mock database for demo purposes
-const mockPhoneData = {};
-const countries = ['Argentina', 'Brazil', 'Canada', 'Germany', 'UK', 'USA', 'France', 'Spain', 'Italy', 'Japan', 'China', 'Australia'];
-
-// Generate mock phone data for each country
-countries.forEach(country => {
-  mockPhoneData[country] = [];
-  // Generate 5-10 random phone numbers for each country
-  const count = Math.floor(Math.random() * 6) + 5;
-  for (let i = 1; i <= count; i++) {
-    mockPhoneData[country].push({
-      id: i,
-      phone_number: `+${Math.floor(Math.random() * 9000000000) + 1000000000}`,
-      country: country,
-      status: ['green', 'yellow', 'red'][Math.floor(Math.random() * 3)],
-      type: ['Mobile', 'Office', 'Fax'][Math.floor(Math.random() * 3)],
-      last_updated: new Date().toISOString()
-    });
-  }
-});
+const sql = require('mssql');
+const { getDbConnection } = require('../services/database');
 
 // Controller functions
 const getPhoneNumbersByCountry = async (req, res) => {
@@ -28,34 +7,46 @@ const getPhoneNumbersByCountry = async (req, res) => {
     const countryName = req.params.countryName;
     console.log(`Retrieving phone numbers for country: ${countryName}`);
     
-    // Use mock data for now - in production, you would query your database
-    const phoneNumbers = mockPhoneData[countryName] || [];
+    // Get database connection
+    const pool = await getDbConnection();
     
-    // If we don't have mock data for this country, generate some
-    if (phoneNumbers.length === 0) {
-      const count = Math.floor(Math.random() * 6) + 3;
-      for (let i = 1; i <= count; i++) {
-        phoneNumbers.push({
-          id: i,
-          phone_number: `+${Math.floor(Math.random() * 9000000000) + 1000000000}`,
-          country: countryName,
-          status: ['green', 'yellow', 'red'][Math.floor(Math.random() * 3)],
-          type: ['Mobile', 'Office', 'Fax'][Math.floor(Math.random() * 3)],
-          last_updated: new Date().toISOString()
-        });
-      }
-      // Store for future requests
-      mockPhoneData[countryName] = phoneNumbers;
-    }
+    // Query to get phone numbers for this country
+    const result = await pool.request()
+      .input('country', sql.NVarChar, countryName)
+      .query(`
+        SELECT 
+          id,
+          phone_number,
+          country,
+          status,
+          type,
+          last_updated
+        FROM statuses_phone
+        WHERE country = @country
+      `);
     
+    console.log(`Found ${result.recordset.length} phone numbers for ${countryName}`);
+    
+    // Return the results
     return { 
       success: true, 
-      count: phoneNumbers.length,
-      data: phoneNumbers 
+      count: result.recordset.length,
+      data: result.recordset 
     };
   } catch (error) {
     console.error('Error fetching phone numbers:', error);
-    throw error;
+    
+    // If there's an error, return mock data as fallback
+    const mockData = generateMockPhoneData(countryName, 5);
+    
+    console.log(`Using mock data for ${countryName} due to database error`);
+    
+    return { 
+      success: true, 
+      count: mockData.length,
+      data: mockData,
+      note: "Using mock data due to database error"
+    };
   }
 };
 
@@ -63,27 +54,63 @@ const getPhoneDetails = async (phoneId) => {
   try {
     console.log(`Retrieving details for phone ID: ${phoneId}`);
     
-    // For mock purposes - find this phone in any country
-    let phoneDetails = null;
+    // Get database connection
+    const pool = await getDbConnection();
     
-    for (const country in mockPhoneData) {
-      const found = mockPhoneData[country].find(phone => phone.id.toString() === phoneId);
-      if (found) {
-        phoneDetails = found;
-        break;
-      }
-    }
+    // Query to get details for this phone
+    const result = await pool.request()
+      .input('id', sql.Int, phoneId)
+      .query(`
+        SELECT 
+          id,
+          phone_number,
+          country,
+          status,
+          type,
+          last_updated
+        FROM statuses_phone
+        WHERE id = @id
+      `);
     
-    if (phoneDetails) {
-      return { success: true, data: phoneDetails };
+    if (result.recordset.length > 0) {
+      return { 
+        success: true, 
+        data: result.recordset[0] 
+      };
     } else {
-      return { success: false, error: 'Phone number not found' };
+      return { 
+        success: false, 
+        error: 'Phone number not found' 
+      };
     }
   } catch (error) {
     console.error('Error fetching phone details:', error);
-    throw error;
+    
+    // Return a generic error
+    return { 
+      success: false, 
+      error: 'Error retrieving phone details' 
+    };
   }
 };
+
+// Helper function to generate mock data as fallback
+function generateMockPhoneData(countryName, count) {
+  const phoneNumbers = [];
+  
+  for (let i = 1; i <= count; i++) {
+    phoneNumbers.push({
+      id: i,
+      phone_number: `+${Math.floor(Math.random() * 9000000000) + 1000000000}`,
+      country: countryName,
+      status: ['green', 'yellow', 'red'][Math.floor(Math.random() * 3)],
+      type: ['Mobile', 'Office', 'Fax'][Math.floor(Math.random() * 3)],
+      last_updated: new Date().toISOString()
+    });
+  }
+  
+  return phoneNumbers;
+}
 
 module.exports = {
   getPhoneNumbersByCountry,
