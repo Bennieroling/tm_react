@@ -13,9 +13,6 @@ const getGlobalStatus = async (req, res) => {
         country,
         region,
         status,
-        uptime,
-        total,
-        active,
         provider,
         type,
         last_updated
